@@ -74,6 +74,7 @@ sudo systemctl start selfdeleg.service
 <br>
 To follow the output:
 <br>
+
 ``` bash
 tail -f ./logs/debug.log
 ```
