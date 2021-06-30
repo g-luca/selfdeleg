@@ -165,7 +165,7 @@ class Desmosbot:
         now = str(datetime.now()) + ":"
 
         total_rewards_withdrawn: float = 0
-        # Withdraw commission and
+        # Withdraw commission and rewards
         if(self.commission + self.reward >= REDELEGATE_AT and not DEBUG_WATCH_ONLY):
             success = self.tx_withdrawRewards()
             if(success):
@@ -179,12 +179,9 @@ class Desmosbot:
 
             if (not DEBUG_WATCH_ONLY):
                 self.tx_redelegate(amount_to_redelegate)
-                logger.info(now+"withdrawn " +
-                            str(amount_to_redelegate) + "DARIC")
 
             self.total_redelegated += amount_to_redelegate
-            print(amount_to_redelegate)
-            logger.info(now+"Total redelegations " +
+            logger.info(now+"Redelegated " +
                         str(self.total_redelegated) + "DARIC")
 
         else:
@@ -204,12 +201,12 @@ class Desmosbot:
 
 
 async def main():
+    os.system("clear")
     print("starting...")
     if(MINIMUM_BALANCE < 1):
         print("\n\n Configuration MINIMUM_BALANCE MUST BE > 1 !!!\n\n")
         raise "MINIMUM_BALANCE ERROR"
     bot = Desmosbot()
-    os.system("clear")
 
     while(True):
         now = datetime.now()
@@ -229,7 +226,8 @@ async def main():
               bcolors.ENDC + str(bot.commission) + " DARIC")
 
         bot.update()  # update balance, commissions, rewards
-        bot.redelegate()
+        bot.redelegate()  # withdraw rewards and redelegate
+        bot.update()  # update balance, commissions, rewards
 
         print(bcolors.OKCYAN +
               "\n\nSleeping... ({}m)".format(REFRESH_MINUTES) + bcolors.ENDC)
