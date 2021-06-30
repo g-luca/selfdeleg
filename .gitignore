@@ -1,0 +1,4 @@
+config.ini
+/logs/*
+/.vscode/*
+/__pycache__/*
