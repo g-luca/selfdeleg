@@ -8,6 +8,7 @@ import configparser
 import asyncio
 import logging
 import logging.handlers as handlers
+import getpass
 
 
 logger = logging.getLogger('valcontrol')
@@ -98,14 +99,20 @@ class Desmosbot:
     started_at = datetime.now()
     total_redelegated = 0
 
+    password = ""
+
     balance = 0
     reward = 0
     commission = 0
 
     UDARIC = 1000000
 
-    def __init__(self):
+    def __init__(self, password):
+        self.password = password
         self.update()
+
+    def confirmWithPassword(self):
+        cmd("echo " + self.password)
 
     def updateBalance(self):
         try:
@@ -157,6 +164,7 @@ class Desmosbot:
     def tx_withdrawRewards(self):
         print(bcolors.WARNING + "Withdrawing rewards..." + bcolors.ENDC)
         withdraw_success = cmd(COMMAND_WITHDRAW_REWARDS)
+        self.confirmWithPassword()
         return len(withdraw_success) > 0
 
     # REDELEGATION LOGIC
@@ -194,6 +202,7 @@ class Desmosbot:
         print(bcolors.WARNING + "Redelegating..." + bcolors.ENDC)
         amount_str = str(amount_in_daric * self.UDARIC) + "udaric"
         cmdComplete = COMMAND_REDELEGATE.replace('REPLACE_AMOUNT', amount_str)
+        self.confirmWithPassword()
         redelegate_success = cmd(cmdComplete)
         if(redelegate_success == "cancelled transaction"):
             return False
@@ -202,13 +211,16 @@ class Desmosbot:
 
 async def main():
     os.system("clear")
+    password = getpass.getpass("Keyring password:")
     print("starting...")
+
     if(MINIMUM_BALANCE < 1):
         print("\n\n Configuration MINIMUM_BALANCE MUST BE > 1 !!!\n\n")
         raise "MINIMUM_BALANCE ERROR"
-    bot = Desmosbot()
+    bot = Desmosbot(password)
 
     while(True):
+        os.system("clear")
         now = datetime.now()
         print("Started at: " + bcolors.OKCYAN +
               bot.started_at.strftime("%H:%M:%S") + bcolors.ENDC)
