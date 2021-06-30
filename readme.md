@@ -36,6 +36,7 @@ python3 bot.py
 
 ## 3\. Run as a Service \(Ubuntu/Linux\)
 <br>
+
 ``` bash
 sudo nano /etc/systemd/system/selfdeleg.service
 ```
@@ -73,6 +74,7 @@ sudo systemctl start selfdeleg
 <br>
 To follow the daily output:
 <br>
+
 ``` bash
 tail -f ./logs/debug.log
 ```
