@@ -68,12 +68,14 @@ Then,
 sudo systemctl daemon-reload
 ```
 <br>
+
 ``` bash
 sudo systemctl start selfdeleg.service
 ```
 <br>
 To follow the output:
 <br>
+
 ``` bash
 tail -f ./logs/debug.log
 ```
