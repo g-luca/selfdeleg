@@ -9,6 +9,8 @@ import asyncio
 import logging
 import logging.handlers as handlers
 import getpass
+import pexpect
+import sys
 
 
 logger = logging.getLogger('valcontrol')
@@ -51,15 +53,15 @@ REFRESH_MINUTES = float(config["Validator"]["REFRESH_MINUTES"])
 
 # Command Balance
 COMMAND_GET_BALANCE = 'desmos q bank balances {} --node {} -o json'.format(
-    USER_ADDRESS, DEFAULT_NODE)
+    USER_ADDRESS, DEFAULT_NODE).split(" ")
 
 # Command Redelegate
 COMMAND_REDELEGATE = 'desmos tx staking delegate {} --from {} --keyring-backend {} REPLACE_AMOUNT --fees {} --node {} --chain-id {} --yes'.format(
     VALIDATOR_ADDRESS, KEY_NAME, KEY_BACKEND, TRANSACTION_FEES, DEFAULT_NODE, CHAIN_ID)
 
 # Command Rewards
-COMMAND_GET_REWARDS_BALANCE = 'desmos q distribution rewards {} {}  -o json --node {}'.format(
-    USER_ADDRESS, VALIDATOR_ADDRESS, DEFAULT_NODE)
+COMMAND_GET_REWARDS_BALANCE = 'desmos q distribution rewards {} {} -o json --node {}'.format(
+    USER_ADDRESS, VALIDATOR_ADDRESS, DEFAULT_NODE).split(" ")
 
 
 COMMAND_WITHDRAW_REWARDS = 'desmos tx distribution withdraw-rewards {} --commission --from {} --keyring-backend {} --fees {} --chain-id {} --node {} --yes'.format(
@@ -67,8 +69,8 @@ COMMAND_WITHDRAW_REWARDS = 'desmos tx distribution withdraw-rewards {} --commiss
 
 
 # Command Commissions
-COMMAND_GET_COMMISSION_BALANCE = 'desmos q distribution commission {}  -o json --node {}'.format(
-    VALIDATOR_ADDRESS, DEFAULT_NODE)
+COMMAND_GET_COMMISSION_BALANCE = 'desmos q distribution commission {} -o json --node {}'.format(
+    VALIDATOR_ADDRESS, DEFAULT_NODE).split(" ")
 
 # --------------------------
 
@@ -85,13 +87,26 @@ class bcolors:
     UNDERLINE = '\033[4m'
 
 
-# Execute a shell commands (for desmos cli)
-def cmd(cmd):
+# Execute a shell commands array (for desmos cli)
+def cmd(cmds):
     try:
-        return subprocess.run(
-            [cmd], shell=True, stdout=subprocess.PIPE).stdout.decode()
-    except subprocess.CalledProcessError as e:
+        proc = subprocess.Popen(
+            cmds, shell=False,  stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout, stderr = proc.communicate()
+        return stdout
+    except:
         print("command error")
+        return False
+
+
+def tx(cmd, password):
+    try:
+        child = pexpect.spawn(cmd, timeout=1)
+        child.expect('.*')
+        child.sendline(password)
+        child.wait()
+    except:
+        print("tx error")
         return False
 
 
@@ -160,13 +175,6 @@ class Desmosbot:
             print(" > rewards under " + str(REDELEGATE_AT) + " DARIC")
         return 0
 
-    # WITHDRAW REWARDS TRANSACTION
-    def tx_withdrawRewards(self):
-        print(bcolors.WARNING + "Withdrawing rewards..." + bcolors.ENDC)
-        withdraw_success = cmd(COMMAND_WITHDRAW_REWARDS)
-        self.confirmWithPassword()
-        return len(withdraw_success) > 0
-
     # REDELEGATION LOGIC
 
     def redelegate(self):
@@ -201,17 +209,31 @@ class Desmosbot:
     def tx_redelegate(self, amount_in_daric: float):
         print(bcolors.WARNING + "Redelegating..." + bcolors.ENDC)
         amount_str = str(amount_in_daric * self.UDARIC) + "udaric"
-        cmdComplete = COMMAND_REDELEGATE.replace('REPLACE_AMOUNT', amount_str)
-        self.confirmWithPassword()
-        redelegate_success = cmd(cmdComplete)
-        if(redelegate_success == "cancelled transaction"):
-            return False
-        return True
+        cmdRedelegate = COMMAND_REDELEGATE.replace(
+            'REPLACE_AMOUNT', amount_str)
+
+        redelegate_success = tx(
+            cmdRedelegate, self.password)
+        return redelegate_success
+
+    # WITHDRAW REWARDS TRANSACTION
+
+    def tx_withdrawRewards(self):
+        print(bcolors.WARNING + "Withdrawing rewards..." + bcolors.ENDC)
+        withdraw_success = tx(
+            COMMAND_WITHDRAW_REWARDS, self.password)
+        return withdraw_success
 
 
 async def main():
     os.system("clear")
-    password = getpass.getpass("Keyring password:")
+
+    password = ""
+    try:
+        password = sys.argv[1]
+    except:
+        password = getpass.getpass("Keyring password:")
+
     print("starting...")
 
     if(MINIMUM_BALANCE < 1):
