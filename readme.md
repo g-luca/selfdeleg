@@ -25,7 +25,7 @@ mv template.ini config.ini && nano config.ini
 
 And edit:
 
-1. `KEY_NAME` with your validator key name, and `KEY_BACKEND` if you use a different [keyring backend](https://docs.cosmos.network/v0.42/run-node/keyring.html)
+1. `KEY_NAME` with your validator key name, and `KEY_BACKEND` if you use a different [keyring backend](https://docs.cosmos.network/v0.42/run-node/keyring.html). <br>
 If you use the **test** keyring, in the future steps you can replace the password inputs with spaces/random characters
 2. `VALIDATOR_ADDRESS`, `USER_ADDRESS`, `DELEGATE_ADDRESS`, with your addresses.
 If you want to self delegate, `USER_ADDRESS` and `DELEGATE_ADDRESS` should match.
@@ -49,6 +49,7 @@ python3 bot.py password
 
 ## 3\. Run as a Service \(Ubuntu/Linux\)
 <br>
+
 ``` bash
 sudo nano ./start.sh
 ```
@@ -101,6 +102,7 @@ sudo systemctl start selfdeleg
 <br>
 To follow the daily output:
 <br>
+
 ``` bash
 tail -f ./logs/debug.log
 ```
