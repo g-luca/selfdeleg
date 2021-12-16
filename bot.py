@@ -84,7 +84,14 @@ def tx(cmd, password):
         child = pexpect.spawn(cmd, timeout=1)
         child.expect('.*')
         child.sendline(password)
-        child.wait()
+        # prevent the child from blocking, child.wait() doesn't work when using directly `python3 bot.py`
+        i = 0
+        # max child execution 20s
+        while child.isalive() and i < 20:
+            i += 1
+            time.sleep(1)
+        child.close()
+
     except:
         print("tx error")
         return False
