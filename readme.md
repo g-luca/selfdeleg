@@ -13,10 +13,6 @@ A simple self delegator bot for Desmos Blockchain
 git clone https://github.com/g-luca/selfdeleg.git && cd selfdeleg && mkdir logs
 ```
 
-``` bash
-git checkout tags/v0.2
-```
-
 ## 2\. Configuration
 
 ``` bash
