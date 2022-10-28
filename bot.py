@@ -35,6 +35,8 @@ DEFAULT_NODE_ADDRESS = str(config["Validator"]["DEFAULT_NODE_ADDRESS"])
 DEFAULT_NODE_PORT = str(config["Validator"]["DEFAULT_NODE_PORT"])
 DEFAULT_NODE = str(DEFAULT_NODE_ADDRESS + ":" + DEFAULT_NODE_PORT)
 
+COIN_DENOM = str(config["Validator"]["COIN_DENOM"])
+UCOIN_DENOM = str(config["Validator"]["UCOIN_DENOM"])
 
 REFRESH_MINUTES = float(config["Validator"]["REFRESH_MINUTES"])
 # ----------------------
@@ -42,12 +44,12 @@ REFRESH_MINUTES = float(config["Validator"]["REFRESH_MINUTES"])
 COMMAND_GET_BALANCE = 'desmos q bank balances {} --node {} -o json'.format(
     USER_ADDRESS, DEFAULT_NODE).split(" ")
 # Command Redelegate
-COMMAND_REDELEGATE = 'desmos tx staking delegate {} --from {} --keyring-backend {} REPLACE_AMOUNT --fees {} --gas="auto" --node {} --chain-id {} --yes'.format(
+COMMAND_REDELEGATE = 'desmos tx staking delegate {} --from {} --keyring-backend {} REPLACE_AMOUNT --fees {} --gas="auto" --node {} --chain-id {} --yes -o json --broadcast-mode block --gas 250000'.format(
     VALIDATOR_ADDRESS, KEY_NAME, KEY_BACKEND, TRANSACTION_FEES, DEFAULT_NODE, CHAIN_ID)
 # Command Rewards
 COMMAND_GET_REWARDS_BALANCE = 'desmos q distribution rewards {} {} -o json --node {}'.format(
     USER_ADDRESS, VALIDATOR_ADDRESS, DEFAULT_NODE).split(" ")
-COMMAND_WITHDRAW_REWARDS = 'desmos tx distribution withdraw-rewards {} --commission --from {} --keyring-backend {} --fees {} --gas="auto" --chain-id {} --node {} --yes'.format(
+COMMAND_WITHDRAW_REWARDS = 'desmos tx distribution withdraw-rewards {} --commission --from {} --keyring-backend {} --fees {} --gas="auto" --chain-id {} --node {} --yes -o json --broadcast-mode block --gas 250000'.format(
     VALIDATOR_ADDRESS, KEY_NAME, KEY_BACKEND, TRANSACTION_FEES, CHAIN_ID, DEFAULT_NODE)
 # Command Commissions
 COMMAND_GET_COMMISSION_BALANCE = 'desmos q distribution commission {} -o json --node {}'.format(
@@ -78,19 +80,29 @@ def cmd(cmds):
         print("command error")
         return False
 
+# Check if the transaction was successful
+def read_tx_success(tx_result):
+    print(tx_result)
+    # code = 0 means tx success
+    if '"code":0' in str(tx_result):
+        return True
+    else:
+        print("read tx result error")
+        return False
 
+# Perform a transaction
 def tx(cmd, password):
     try:
-        child = pexpect.spawn(cmd, timeout=1)
+        child = pexpect.spawn(cmd, timeout=10)
         child.expect('.*')
-        child.sendline(password)
-        # prevent the child from blocking, child.wait() doesn't work when using directly `python3 bot.py`
-        i = 0
-        # max child execution 20s
-        while child.isalive() and i < 20:
-            i += 1
-            time.sleep(1)
+        success = read_tx_success(child.read())
+        if not success:
+            child.sendline(password)
+            child.expect('.*')
+            time.sleep(6)
+            success = read_tx_success(child.read())
         child.close()
+        return success
 
     except:
         print("tx error")
@@ -104,7 +116,7 @@ class Desmosbot:
     balance = 0
     reward = 0
     commission = 0
-    UDSM = 1000000
+    UCOIN = 1000000
 
     def __init__(self, password):
         self.password = password
@@ -118,7 +130,7 @@ class Desmosbot:
             balance_raw = cmd(COMMAND_GET_BALANCE)
             balance = json.loads(balance_raw)
             amount = float(
-                balance['balances'][0]['amount']) / self.UDSM
+                balance['balances'][0]['amount']) / self.UCOIN
             self.balance = float(amount)
             return True
         except:
@@ -130,7 +142,7 @@ class Desmosbot:
             reward_balance_raw = cmd(COMMAND_GET_REWARDS_BALANCE)
             reward_balance = json.loads(reward_balance_raw)
             reward_amount = float(
-                reward_balance['rewards'][0]['amount']) / self.UDSM
+                reward_balance['rewards'][0]['amount']) / self.UCOIN
             self.reward = float(reward_amount)
             return True
         except:
@@ -142,7 +154,7 @@ class Desmosbot:
             commission_balance_raw = cmd(COMMAND_GET_COMMISSION_BALANCE)
             commission_balance = json.loads(commission_balance_raw)
             commission_amount = float(
-                commission_balance['commission'][0]['amount']) / self.UDSM
+                commission_balance['commission'][0]['amount']) / self.UCOIN
             self.commission = float(commission_amount)
             return True
         except:
@@ -163,7 +175,7 @@ class Desmosbot:
             if(tx_success):
                 return self.reward
         else:
-            print(" > rewards under " + str(REDELEGATE_AT) + " DSM")
+            print(" > rewards under " + str(REDELEGATE_AT) + " " + COIN_DENOM)
         return 0
     # REDELEGATION LOGIC
 
@@ -176,7 +188,7 @@ class Desmosbot:
             if(success):
                 total_rewards_withdrawn = self.commission + self.reward
                 logger.info(now+"Withdrwawn Rewards and Commissions for " +
-                            str(total_rewards_withdrawn) + "DSM")
+                            str(total_rewards_withdrawn) + COIN_DENOM)
         amount_to_redelegate: float = float(
             self.balance) + float(total_rewards_withdrawn) - float(MINIMUM_BALANCE)
         if(amount_to_redelegate >= float(REDELEGATE_AT)):
@@ -184,15 +196,15 @@ class Desmosbot:
                 self.tx_redelegate(amount_to_redelegate)
             self.total_redelegated += amount_to_redelegate
             logger.info(now+"Redelegated " +
-                        str(self.total_redelegated) + "DSM")
+                        str(self.total_redelegated) + COIN_DENOM)
         else:
             print("Rewards and Commissions under " +
-                  str(REDELEGATE_AT) + " DSM")
+                  str(REDELEGATE_AT) + " " + COIN_DENOM)
     # REDELEGATING TRANSACTION
 
     def tx_redelegate(self, amount_in_daric: float):
         print(bcolors.WARNING + "Redelegating..." + bcolors.ENDC)
-        amount_str = str(amount_in_daric * self.UDSM) + "udsm"
+        amount_str = str(amount_in_daric * self.UCOIN) + UCOIN_DENOM
         cmdRedelegate = COMMAND_REDELEGATE.replace(
             'REPLACE_AMOUNT', amount_str)
         redelegate_success = tx(
@@ -202,6 +214,7 @@ class Desmosbot:
 
     def tx_withdrawRewards(self):
         print(bcolors.WARNING + "Withdrawing rewards..." + bcolors.ENDC)
+        print(COMMAND_WITHDRAW_REWARDS)
         withdraw_success = tx(
             COMMAND_WITHDRAW_REWARDS, self.password)
         return withdraw_success
@@ -225,15 +238,15 @@ async def main():
         print("Started at: " + bcolors.OKCYAN +
               bot.started_at.strftime("%H:%M:%S") + bcolors.ENDC)
         print("Total Redelegations: " + bcolors.OKGREEN +
-              str(bot.total_redelegated) + " DSM" + bcolors.ENDC)
+              str(bot.total_redelegated) + " " + COIN_DENOM + bcolors.ENDC)
         print("\nLast update: " + bcolors.OKCYAN +
               now.strftime("%H:%M:%S") + bcolors.ENDC)
         print("\n"+bcolors.OKGREEN + "Balance: " +
-              bcolors.ENDC + str(bot.balance) + " DSM")
+              bcolors.ENDC + str(bot.balance) + " " + COIN_DENOM)
         print(bcolors.OKGREEN + "Reward: " +
-              bcolors.ENDC + str(bot.reward) + " DSM")
+              bcolors.ENDC + str(bot.reward) + " " + COIN_DENOM)
         print(bcolors.OKGREEN + "Commissions: " +
-              bcolors.ENDC + str(bot.commission) + " DSM")
+              bcolors.ENDC + str(bot.commission) + " " + COIN_DENOM)
         while True:
             updateSuccess = bot.update()  # update balance, commissions, rewards
             if(updateSuccess):
